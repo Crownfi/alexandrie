@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use alexandrie_index::Indexer;
 use axum::extract::{Path, State};
 use axum::Json;
 use diesel::prelude::*;
@@ -12,12 +13,14 @@ use crate::error::ApiError;
 use crate::utils;
 
 /// Response body for this route.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ResponseBody {
     /// The crate's name.
     pub name: String,
     /// The crate's description.
     pub description: Option<String>,
+    /// All available versions of the crate.
+    pub versions: Vec<String>,
     /// The crate's repository link.
     pub repository: Option<String>,
     /// The crate's documentation link.
@@ -82,9 +85,16 @@ pub async fn get(
         })
         .await?;
 
+    let versions = state.index.all_records(krate.name.as_str())?;
+    let versions = versions
+        .into_iter()
+        .map(|vers| vers.vers.to_string())
+        .collect();
+
     Ok(Json(ResponseBody {
         keywords,
         categories,
+        versions,
         name: krate.name,
         description: krate.description,
         repository: krate.repository,
